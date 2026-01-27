@@ -52,6 +52,19 @@ public:
     int64_t getCurrentTick() const { return currentTick; }
     int64_t getMaxTick() const;
     double getPlaybackPosition() const;
+    
+    // Auto-play
+    void setAutoPlay (bool autoPlay) { autoPlayEnabled = autoPlay; }
+    bool isAutoPlayEnabled() const { return autoPlayEnabled; }
+    
+    // Favorites
+    void addToFavorites (const juce::File& file);
+    void removeFromFavorites (const juce::File& file);
+    bool isFavorite (const juce::File& file) const;
+    juce::StringArray getFavorites() const;
+    
+    // Current file tracking
+    juce::File getCurrentFile() const { return currentFile; }
 
 private:
     // MIDI file playback state
@@ -68,6 +81,15 @@ private:
     double samplesPerTick = 0.0;
 
     std::unique_ptr<juce::MidiOutput> midiOutput;
+    
+    // Auto-play state
+    bool autoPlayEnabled = false;
+    
+    // Favorites
+    juce::StringArray favoriteFiles;
+    
+    // Current file
+    juce::File currentFile;
 
     void updateHostTempo();
 

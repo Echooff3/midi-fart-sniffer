@@ -137,15 +137,47 @@ juce::AudioProcessorEditor* MidiFartSnifferProcessor::createEditor()
 
 void MidiFartSnifferProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    // You should use this method to store your parameters in the host's
-    // format. You could also use the AudioProcessorValueTreeState class
-    // for more complex parameter management.
+    // Create XML to store state
+    std::unique_ptr<juce::XmlElement> xml (new juce::XmlElement ("MidiFartSnifferState"));
+    
+    xml->setAttribute ("autoPlay", autoPlayEnabled);
+    
+    // Save favorites
+    auto* favoritesElement = xml->createNewChildElement ("Favorites");
+    for (const auto& fav : favoriteFiles)
+    {
+        favoritesElement->createNewChildElement ("File")->setAttribute ("path", fav);
+    }
+    
+    copyXmlToBinary (*xml, destData);
 }
 
 void MidiFartSnifferProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    // You should use this method to restore your parameters from this
-    // data, which will be called when the host loads the plugin.
+    // Restore state from XML
+    std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
+    
+    if (xmlState != nullptr)
+    {
+        if (xmlState->hasTagName ("MidiFartSnifferState"))
+        {
+            autoPlayEnabled = xmlState->getBoolAttribute ("autoPlay", false);
+            
+            // Restore favorites
+            favoriteFiles.clear();
+            auto* favoritesElement = xmlState->getChildByName ("Favorites");
+            if (favoritesElement != nullptr)
+            {
+                for (auto* fileElement : favoritesElement->getChildIterator())
+                {
+                    if (fileElement->hasTagName ("File"))
+                    {
+                        favoriteFiles.add (fileElement->getStringAttribute ("path"));
+                    }
+                }
+            }
+        }
+    }
 }
 
 void MidiFartSnifferProcessor::updateHostTempo()
@@ -177,6 +209,7 @@ void MidiFartSnifferProcessor::setSyncToHost (bool shouldSync)
 
 void MidiFartSnifferProcessor::loadMidiFile (const juce::File& file)
 {
+    currentFile = file;  // Store current file
     currentMidiFile = std::make_unique<juce::MidiFile>();
     
     juce::FileInputStream fileStream (file);
@@ -273,6 +306,31 @@ double MidiFartSnifferProcessor::getPlaybackPosition() const
     if (maxTick > 0)
         return static_cast<double> (currentTick) / static_cast<double> (maxTick);
     return 0.0;
+}
+
+void MidiFartSnifferProcessor::addToFavorites (const juce::File& file)
+{
+    juce::String filePath = file.getFullPathName();
+    if (! favoriteFiles.contains (filePath))
+    {
+        favoriteFiles.add (filePath);
+    }
+}
+
+void MidiFartSnifferProcessor::removeFromFavorites (const juce::File& file)
+{
+    juce::String filePath = file.getFullPathName();
+    favoriteFiles.removeString (filePath);
+}
+
+bool MidiFartSnifferProcessor::isFavorite (const juce::File& file) const
+{
+    return favoriteFiles.contains (file.getFullPathName());
+}
+
+juce::StringArray MidiFartSnifferProcessor::getFavorites() const
+{
+    return favoriteFiles;
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

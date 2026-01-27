@@ -33,6 +33,7 @@ private:
     //==============================================================================
     MidiFartSnifferProcessor& audioProcessor;
 
+    std::unique_ptr<juce::WildcardFileFilter> wildCardFilter;
     std::unique_ptr<juce::FileBrowserComponent> fileBrowser;
 
     juce::TextButton playButton { "Play" };

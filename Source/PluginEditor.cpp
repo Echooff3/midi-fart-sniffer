@@ -5,13 +5,15 @@ MidiFartSnifferEditor::MidiFartSnifferEditor (MidiFartSnifferProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
     // File browser setup
+    wildCardFilter = std::make_unique<juce::WildcardFileFilter> ("*.mid;*.midi", "*", "MIDI Files");
     fileBrowser = std::make_unique<juce::FileBrowserComponent> (
         juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
-        this,
         juce::File::getSpecialLocation (juce::File::userDocumentsDirectory),
-        juce::StringArray ("*.mid;*.midi"),
-        juce::String ("Select a MIDI file")
+        wildCardFilter.get(),
+        nullptr
     );
+    
+    fileBrowser->addListener (this);
 
     addAndMakeVisible (fileBrowser.get());
 

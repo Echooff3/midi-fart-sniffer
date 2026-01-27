@@ -99,9 +99,9 @@ void MidiFartSnifferEditor::resized()
 
     // Buttons row
     auto buttonRow = rightPanel.removeFromTop (40);
-    playButton.setBounds (buttonRow.removeFromLeft (proportionOfWidth (0.25f, buttonRow)));
-    stopButton.setBounds (buttonRow.removeFromLeft (proportionOfWidth (0.25f, buttonRow)));
-    loopButton.setBounds (buttonRow.removeFromLeft (proportionOfWidth (0.25f, buttonRow)));
+    playButton.setBounds (buttonRow.removeFromLeft (buttonRow.proportionOfWidth (0.25f)));
+    stopButton.setBounds (buttonRow.removeFromLeft (buttonRow.proportionOfWidth (0.25f)));
+    loopButton.setBounds (buttonRow.removeFromLeft (buttonRow.proportionOfWidth (0.25f)));
     syncButton.setBounds (buttonRow);
 
     // Position slider
@@ -115,7 +115,7 @@ void MidiFartSnifferEditor::resized()
 
 void MidiFartSnifferEditor::selectionChanged()
 {
-    auto selectedFile = fileBrowser->getSelectedFile();
+    auto selectedFile = fileBrowser->getSelectedFile (0);
     if (selectedFile.existsAsFile())
     {
         loadSelectedFile (selectedFile);

@@ -177,16 +177,41 @@ void MidiFartSnifferProcessor::setSyncToHost (bool shouldSync)
 
 void MidiFartSnifferProcessor::loadMidiFile (const juce::File& file)
 {
-    currentMidiFile = std::make_unique<MidiFile>();
-    if (! currentMidiFile->readFrom (file))
+    currentMidiFile = std::make_unique<juce::MidiFile>();
+    
+    juce::FileInputStream fileStream (file);
+    if (! fileStream.openedOk() || ! currentMidiFile->readFrom (fileStream))
     {
         currentMidiFile.reset();
         DBG ("Failed to load MIDI file: " + file.getFullPathName());
         return;
     }
 
-    fileTempo = currentMidiFile->getTempoAt (0.0);
-    ticksPerQuarterNote = static_cast<double> (currentMidiFile->header.timeFormat.getTicksPerQuarterNote());
+    // Get tempo from MIDI file - scan for tempo events
+    fileTempo = 120.0; // Default tempo
+    short timeFormat = currentMidiFile->getTimeFormat();
+    if (timeFormat > 0)
+        ticksPerQuarterNote = static_cast<double> (timeFormat);
+    else
+        ticksPerQuarterNote = 480.0; // Default PPQN
+    
+    // Try to find tempo from MIDI events
+    for (int trackIndex = 0; trackIndex < currentMidiFile->getNumTracks(); ++trackIndex)
+    {
+        const juce::MidiMessageSequence* track = currentMidiFile->getTrack (trackIndex);
+        for (int i = 0; i < track->getNumEvents(); ++i)
+        {
+            const juce::MidiMessage& msg = track->getEventPointer (i)->message;
+            if (msg.isTempoMetaEvent())
+            {
+                fileTempo = msg.getTempoSecondsPerQuarterNote() > 0.0 
+                    ? 60.0 / msg.getTempoSecondsPerQuarterNote() 
+                    : 120.0;
+                break; // Use first tempo found
+            }
+        }
+        if (fileTempo != 120.0) break;
+    }
 
     int numTracks = currentMidiFile->getNumTracks();
     midiTracks.resize (numTracks);
@@ -228,7 +253,17 @@ int64_t MidiFartSnifferProcessor::getMaxTick() const
 {
     int64_t maxTick = 0;
     for (const auto& track : midiTracks)
-        maxTick = jmax (maxTick, track.getEndTickPosition());
+    {
+        if (track.getNumEvents() > 0)
+        {
+            auto lastEvent = track.getEventPointer (track.getNumEvents() - 1);
+            if (lastEvent != nullptr)
+            {
+                int64_t endTime = static_cast<int64_t> (lastEvent->message.getTimeStamp());
+                maxTick = std::max (maxTick, endTime);
+            }
+        }
+    }
     return maxTick;
 }
 

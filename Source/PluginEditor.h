@@ -24,6 +24,7 @@ private:
     void selectionChanged() override;
     void fileClicked (const juce::File& file, const juce::MouseEvent&) override;
     void fileDoubleClicked (const juce::File&) override;
+    void browserRootChanged (const juce::File&) override {}
 
     // Custom methods
     void loadSelectedFile (const juce::File& file);

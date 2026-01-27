@@ -1,0 +1,246 @@
+#include "PluginProcessor.h"
+#include "PluginEditor.h"
+
+MidiFartSnifferProcessor::MidiFartSnifferProcessor()
+#ifndef JucePlugin_PreferredChannelConfigurations
+    : AudioProcessor (BusesProperties()
+#if ! JucePlugin_IsMidiEffect
+#if ! JucePlugin_IsSynth
+        .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
+#endif
+        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
+#endif
+    )
+#endif
+{
+}
+
+MidiFartSnifferProcessor::~MidiFartSnifferProcessor()
+{
+}
+
+void MidiFartSnifferProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+{
+    currentTick = 0;
+}
+
+void MidiFartSnifferProcessor::releaseResources()
+{
+    // When playback stops, you can use this opportunity to free up any
+    // spare memory, etc.
+}
+
+#ifndef JucePlugin_PreferredChannelConfigurations
+bool MidiFartSnifferProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+{
+  #if JucePlugin_IsMidiEffect
+    juce::ignoreUnused (layouts);
+    return true;
+  #else
+    // This is the place where you check if the layout is supported.
+    // In this template code we only support mono or stereo
+    // channels, regardless of the number of buses.
+    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
+     && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
+        return false;
+
+    // This checks if the input layout matches the output layout
+   #if ! JucePlugin_IsSynth
+    if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
+        return false;
+   #endif
+
+    return true;
+  #endif
+}
+#endif
+
+void MidiFartSnifferProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
+{
+    juce::ScopedNoDenormals noDenormals;
+    auto totalNumInputChannels  = getTotalNumInputChannels();
+    auto totalNumOutputChannels = getTotalNumOutputChannels();
+
+    // Clear any leftover midi
+    midiMessages.clear();
+
+    // In case we have more outputs than inputs, this code clears any output
+    // channels that didn't contain input data, (because these aren't
+    // guaranteed to be handled by the DAW)
+    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
+        buffer.clear (i, 0, buffer.getNumSamples());
+
+    // Playback logic
+    if (isPlaying && ! midiTracks.empty())
+    {
+        updateHostTempo();
+
+        double tempo = getCurrentTempo();
+        double sampleRate = getSampleRate();
+        if (sampleRate > 0.0)
+        {
+            double secondsPerBeat = 60.0 / tempo;
+            double samplesPerBeat = secondsPerBeat * sampleRate;
+            double ticksPerBeat = ticksPerQuarterNote;
+            samplesPerTick = samplesPerBeat / ticksPerBeat;
+        }
+
+        int numSamples = buffer.getNumSamples();
+        int64_t ticksToAdvance = static_cast<int64_t> (numSamples / samplesPerTick + 0.5); // round to nearest
+
+        int64_t startTick = currentTick;
+        int64_t endTick = currentTick + ticksToAdvance;
+
+        // Add events from all tracks
+        for (const auto& track : midiTracks)
+        {
+            for (int i = 0; i < track.getNumEvents(); ++i)
+            {
+                auto* event = track.getEventPointer (i);
+                if (event == nullptr)
+                    continue;
+
+                int64_t eventTick = static_cast<int64_t> (event->message.getTimeStamp());
+                if (eventTick >= startTick && eventTick < endTick)
+                {
+                    int sampleOffset = static_cast<int> ((eventTick - startTick) * samplesPerTick + 0.5);
+                    if (sampleOffset >= 0 && sampleOffset < numSamples)
+                    {
+                        midiMessages.addEvent (event->message, sampleOffset);
+                    }
+                }
+                else if (eventTick >= endTick)
+                {
+                    break;
+                }
+            }
+        }
+
+        currentTick += ticksToAdvance;
+
+        // Check if end reached
+        int64_t maxTick = getMaxTick();
+        if (currentTick >= maxTick)
+        {
+            if (shouldLoop)
+                currentTick = 0;
+            else
+                isPlaying = false;
+        }
+    }
+}
+
+juce::AudioProcessorEditor* MidiFartSnifferProcessor::createEditor()
+{
+    return new MidiFartSnifferEditor (*this);
+}
+
+void MidiFartSnifferProcessor::getStateInformation (juce::MemoryBlock& destData)
+{
+    // You should use this method to store your parameters in the host's
+    // format. You could also use the AudioProcessorValueTreeState class
+    // for more complex parameter management.
+}
+
+void MidiFartSnifferProcessor::setStateInformation (const void* data, int sizeInBytes)
+{
+    // You should use this method to restore your parameters from this
+    // data, which will be called when the host loads the plugin.
+}
+
+void MidiFartSnifferProcessor::updateHostTempo()
+{
+    if (auto* playHead = getPlayHead())
+    {
+        auto pos = playHead->getPosition();
+
+        if (pos.hasValue())
+        {
+            auto bpm = pos->getBpm();
+            if (bpm.hasValue())
+            {
+                hostTempo = *bpm;
+            }
+        }
+    }
+}
+
+double MidiFartSnifferProcessor::getCurrentTempo() const
+{
+    return syncToHost ? hostTempo : fileTempo;
+}
+
+void MidiFartSnifferProcessor::setSyncToHost (bool shouldSync)
+{
+    syncToHost = shouldSync;
+}
+
+void MidiFartSnifferProcessor::loadMidiFile (const juce::File& file)
+{
+    currentMidiFile = std::make_unique<MidiFile>();
+    if (! currentMidiFile->readFrom (file))
+    {
+        currentMidiFile.reset();
+        DBG ("Failed to load MIDI file: " + file.getFullPathName());
+        return;
+    }
+
+    fileTempo = currentMidiFile->getTempoAt (0.0);
+    ticksPerQuarterNote = static_cast<double> (currentMidiFile->header.timeFormat.getTicksPerQuarterNote());
+
+    int numTracks = currentMidiFile->getNumTracks();
+    midiTracks.resize (numTracks);
+    for (int i = 0; i < numTracks; ++i)
+    {
+        midiTracks[i] = *currentMidiFile->getTrack (i);
+    }
+
+    DBG ("Loaded MIDI file with " + juce::String (numTracks) + " tracks, tempo " + juce::String (fileTempo));
+}
+
+void MidiFartSnifferProcessor::startPlayback()
+{
+    isPlaying = true;
+    currentTick = 0;
+}
+
+void MidiFartSnifferProcessor::stopPlayback()
+{
+    isPlaying = false;
+}
+
+void MidiFartSnifferProcessor::setLooping (bool loop)
+{
+    shouldLoop = loop;
+}
+
+bool MidiFartSnifferProcessor::getIsPlaying() const
+{
+    return isPlaying;
+}
+
+double MidiFartSnifferProcessor::getFileTempo() const
+{
+    return fileTempo;
+}
+
+int64_t MidiFartSnifferProcessor::getMaxTick() const
+{
+    int64_t maxTick = 0;
+    for (const auto& track : midiTracks)
+        maxTick = jmax (maxTick, track.getEndTickPosition());
+    return maxTick;
+}
+
+double MidiFartSnifferProcessor::getPlaybackPosition() const
+{
+    int64_t maxTick = getMaxTick();
+    if (maxTick > 0)
+        return static_cast<double> (currentTick) / static_cast<double> (maxTick);
+    return 0.0;
+}
+
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
+{
+    return new MidiFartSnifferProcessor();
+}

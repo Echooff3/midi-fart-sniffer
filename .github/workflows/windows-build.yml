@@ -3,6 +3,8 @@ name: Windows Build
 on:
   push:
     branches: [ main, master ]
+    tags:
+      - 'v*'
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
@@ -12,7 +14,7 @@ jobs:
     runs-on: windows-latest
     
     permissions:
-      contents: read
+      contents: write
     
     steps:
     - name: Checkout code
@@ -37,3 +39,37 @@ jobs:
           build/**/VST3/**/*.vst3
           build/**/*.vst3
         if-no-files-found: error
+    
+    - name: Package VST3 for Release
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      shell: pwsh
+      run: |
+        # Find the VST3 file
+        $vst3Files = Get-ChildItem -Path build -Recurse -Filter "*.vst3" | Select-Object -First 1
+        if ($vst3Files) {
+          # Create a zip archive
+          $zipName = "MidiFartSniffer-VST3-Windows.zip"
+          Compress-Archive -Path $vst3Files.FullName -DestinationPath $zipName
+          Write-Output "VST3_PACKAGE=$zipName" >> $env:GITHUB_ENV
+          Write-Output "Created package: $zipName"
+        } else {
+          Write-Error "No VST3 files found"
+          exit 1
+        }
+    
+    - name: Create Release
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: build-${{ github.run_number }}
+        name: Build ${{ github.run_number }}
+        body: |
+          Automated build from commit ${{ github.sha }}
+          
+          ## Changes
+          ${{ github.event.head_commit.message }}
+        files: MidiFartSniffer-VST3-Windows.zip
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

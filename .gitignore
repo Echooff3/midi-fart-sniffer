@@ -1,0 +1,27 @@
+# Build directories
+build/
+_deps/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# JUCE binary
+*.a
+*.o
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Compiled plugin artifacts
+*.vst3
+*.component
+*.aaxplugin

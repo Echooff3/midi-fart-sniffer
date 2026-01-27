@@ -6,7 +6,8 @@
 
 class MidiFartSnifferEditor final : public juce::AudioProcessorEditor,
                                    private juce::FileBrowserListener,
-                                   private juce::Timer
+                                   private juce::Timer,
+                                   private juce::ListBoxModel
 {
 public:
     explicit MidiFartSnifferEditor (MidiFartSnifferProcessor&);
@@ -29,6 +30,13 @@ private:
     // Custom methods
     void loadSelectedFile (const juce::File& file);
     void updateStatus();
+    void updateFavoritesList();
+    void toggleFavorite();
+    
+    // ListBoxModel methods
+    int getNumRows() override;
+    void paintListBoxItem (int rowNumber, juce::Graphics& g, int width, int height, bool rowIsSelected) override;
+    void listBoxItemClicked (int row, const juce::MouseEvent& e) override;
 
     //==============================================================================
     MidiFartSnifferProcessor& audioProcessor;
@@ -40,12 +48,20 @@ private:
     juce::TextButton stopButton { "Stop" };
     juce::ToggleButton loopButton { "Loop" };
     juce::ToggleButton syncButton { "Sync to Host" };
+    juce::ToggleButton autoPlayCheckbox { "Auto-play" };
+    juce::TextButton favoriteButton { "★ Favorite" };
 
     juce::Slider positionSlider { juce::Slider::LinearHorizontal, juce::Slider::NoTextBox };
 
     juce::Label fileNameLabel { {}, "No file selected" };
     juce::Label statusLabel { {}, "Ready" };
     juce::Label tempoLabel { {}, "Tempo: -- BPM" };
+    juce::Label favoritesLabel { {}, "Favorites:" };
+    
+    juce::ListBox favoritesList;
+    juce::StringArray favoritesArray;
+    
+    juce::File lastClickedFile;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MidiFartSnifferEditor)
 };

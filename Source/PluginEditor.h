@@ -1,6 +1,7 @@
 #pragma once
 
-#include <JuceHeader.h>
+#include <juce_gui_basics/juce_gui_basics.h>
+#include <juce_gui_extra/juce_gui_extra.h>
 #include "PluginProcessor.h"
 
 class MidiFartSnifferEditor final : public juce::AudioProcessorEditor,
@@ -23,6 +24,7 @@ private:
     void selectionChanged() override;
     void fileClicked (const juce::File& file, const juce::MouseEvent&) override;
     void fileDoubleClicked (const juce::File&) override;
+    void browserRootChanged (const juce::File&) override {}
 
     // Custom methods
     void loadSelectedFile (const juce::File& file);
@@ -31,6 +33,7 @@ private:
     //==============================================================================
     MidiFartSnifferProcessor& audioProcessor;
 
+    std::unique_ptr<juce::WildcardFileFilter> wildCardFilter;
     std::unique_ptr<juce::FileBrowserComponent> fileBrowser;
 
     juce::TextButton playButton { "Play" };

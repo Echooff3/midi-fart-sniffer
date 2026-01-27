@@ -3,6 +3,8 @@ name: Windows Build
 on:
   push:
     branches: [ main, master ]
+    tags:
+      - 'v*'
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
@@ -12,7 +14,7 @@ jobs:
     runs-on: windows-latest
     
     permissions:
-      contents: read
+      contents: write
     
     steps:
     - name: Checkout code
@@ -37,3 +39,38 @@ jobs:
           build/**/VST3/**/*.vst3
           build/**/*.vst3
         if-no-files-found: error
+    
+    - name: Package VST3 for Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      shell: pwsh
+      run: |
+        # Find the VST3 file
+        $vst3Files = Get-ChildItem -Path build -Recurse -Filter "*.vst3" | Select-Object -First 1
+        if ($vst3Files) {
+          # Create a zip archive
+          $zipName = "MidiFartSniffer-VST3-Windows.zip"
+          Compress-Archive -Path $vst3Files.FullName -DestinationPath $zipName
+          Write-Output "VST3_PACKAGE=$zipName" >> $env:GITHUB_ENV
+          Write-Output "Created package: $zipName"
+        } else {
+          Write-Error "No VST3 files found"
+          exit 1
+        }
+    
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v1
+      with:
+        name: Release ${{ github.ref_name }}
+        body: |
+          VST3 Plugin Build
+          
+          ## Installation
+          1. Download the MidiFartSniffer-VST3-Windows.zip file
+          2. Extract the .vst3 file
+          3. Copy to your VST3 plugins folder (usually C:\Program Files\Common Files\VST3)
+        files: MidiFartSniffer-VST3-Windows.zip
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

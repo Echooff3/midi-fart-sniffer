@@ -5,13 +5,15 @@ MidiFartSnifferEditor::MidiFartSnifferEditor (MidiFartSnifferProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
     // File browser setup
+    wildCardFilter = std::make_unique<juce::WildcardFileFilter> ("*.mid;*.midi", "*", "MIDI Files");
     fileBrowser = std::make_unique<juce::FileBrowserComponent> (
         juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
-        this,
         juce::File::getSpecialLocation (juce::File::userDocumentsDirectory),
-        juce::StringArray ("*.mid;*.midi"),
-        juce::String ("Select a MIDI file")
+        wildCardFilter.get(),
+        nullptr
     );
+    
+    fileBrowser->addListener (this);
 
     addAndMakeVisible (fileBrowser.get());
 
@@ -92,16 +94,16 @@ void MidiFartSnifferEditor::resized()
     auto bounds = getLocalBounds();
 
     // Left panel: File browser (60% width)
-    fileBrowser->setBounds (bounds.removeFromLeft (proportionOfWidth (0.6f)));
+    fileBrowser->setBounds (bounds.removeFromLeft (bounds.proportionOfWidth (0.6f)));
 
     // Right panel: Controls and status
-    auto rightPanel = bounds.removeFromRight (proportionOfWidth (0.4f));
+    auto rightPanel = bounds.removeFromRight (bounds.proportionOfWidth (0.4f));
 
     // Buttons row
     auto buttonRow = rightPanel.removeFromTop (40);
-    playButton.setBounds (buttonRow.removeFromLeft (proportionOfWidth (0.25f, buttonRow)));
-    stopButton.setBounds (buttonRow.removeFromLeft (proportionOfWidth (0.25f, buttonRow)));
-    loopButton.setBounds (buttonRow.removeFromLeft (proportionOfWidth (0.25f, buttonRow)));
+    playButton.setBounds (buttonRow.removeFromLeft (buttonRow.proportionOfWidth (0.25f)));
+    stopButton.setBounds (buttonRow.removeFromLeft (buttonRow.proportionOfWidth (0.25f)));
+    loopButton.setBounds (buttonRow.removeFromLeft (buttonRow.proportionOfWidth (0.25f)));
     syncButton.setBounds (buttonRow);
 
     // Position slider
@@ -115,7 +117,7 @@ void MidiFartSnifferEditor::resized()
 
 void MidiFartSnifferEditor::selectionChanged()
 {
-    auto selectedFile = fileBrowser->getSelectedFile();
+    auto selectedFile = fileBrowser->getSelectedFile (0);
     if (selectedFile.existsAsFile())
     {
         loadSelectedFile (selectedFile);

@@ -41,7 +41,7 @@ jobs:
         if-no-files-found: error
     
     - name: Package VST3 for Release
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      if: startsWith(github.ref, 'refs/tags/v')
       shell: pwsh
       run: |
         # Find the VST3 file
@@ -58,16 +58,17 @@ jobs:
         }
     
     - name: Create Release
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      if: startsWith(github.ref, 'refs/tags/v')
       uses: softprops/action-gh-release@v1
       with:
-        tag_name: build-${{ github.run_number }}
-        name: Build ${{ github.run_number }}
+        name: Release ${{ github.ref_name }}
         body: |
-          Automated build from commit ${{ github.sha }}
+          VST3 Plugin Build
           
-          ## Changes
-          ${{ github.event.head_commit.message }}
+          ## Installation
+          1. Download the MidiFartSniffer-VST3-Windows.zip file
+          2. Extract the .vst3 file
+          3. Copy to your VST3 plugins folder (usually C:\Program Files\Common Files\VST3)
         files: MidiFartSniffer-VST3-Windows.zip
         draft: false
         prerelease: false

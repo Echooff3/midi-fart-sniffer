@@ -30,5 +30,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: MidiFartSniffer-VST3-Windows
-        path: build/MidiFartSniffer_artefacts/Release/VST3/*.vst3
+        path: |
+          build/**/VST3/**/*.vst3
+          build/**/*.vst3
         if-no-files-found: error

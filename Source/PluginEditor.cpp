@@ -94,10 +94,10 @@ void MidiFartSnifferEditor::resized()
     auto bounds = getLocalBounds();
 
     // Left panel: File browser (60% width)
-    fileBrowser->setBounds (bounds.removeFromLeft (proportionOfWidth (0.6f)));
+    fileBrowser->setBounds (bounds.removeFromLeft (bounds.proportionOfWidth (0.6f)));
 
     // Right panel: Controls and status
-    auto rightPanel = bounds.removeFromRight (proportionOfWidth (0.4f));
+    auto rightPanel = bounds.removeFromRight (bounds.proportionOfWidth (0.4f));
 
     // Buttons row
     auto buttonRow = rightPanel.removeFromTop (40);

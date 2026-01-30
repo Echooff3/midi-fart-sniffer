@@ -16,7 +16,7 @@ FetchContent_MakeAvailable(JUCE)
 juce_add_plugin(MidiFartSniffer
     COMPANY_NAME "Tri$oft"
     IS_SYNTH TRUE
-    NEEDS_MIDI_INPUT TRUE
+    NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT TRUE
     IS_MIDI_EFFECT FALSE
     PLUGIN_MANUFACTURER_CODE Trif

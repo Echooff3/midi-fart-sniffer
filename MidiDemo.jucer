@@ -24,7 +24,7 @@
                      pluginVst3Category="Fx"
                      pluginVst3SubCategory="Generator"
                      pluginIsSynth="1"
-                     pluginWantsMidiInput="1"
+                     pluginWantsMidiInput="0"
                      pluginProducesMidiOutput="1"
                      maxNumInputChannels="2"
                      maxNumOutputChannels="2"
